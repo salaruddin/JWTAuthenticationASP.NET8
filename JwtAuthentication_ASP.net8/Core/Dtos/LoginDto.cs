@@ -2,13 +2,13 @@
 
 namespace JwtAuthentication_ASP.net8.Core.Dtos
 {
-    public record LoginDto
+    public class LoginDto
     {
         [Required(ErrorMessage ="Username is Required")]
-        string UserName;
+        public string UserName { get; set; }
 
         [Required(ErrorMessage ="Password is Required")]
-        string Password;
+        public string Password {  get; set; }
 
     }
 }
