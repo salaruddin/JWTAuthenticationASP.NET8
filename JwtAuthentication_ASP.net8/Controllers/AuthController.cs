@@ -48,7 +48,7 @@ namespace JwtAuthentication_ASP.net8.Controllers
                 return BadRequest("User is already exists");
 
             var user = new IdentityUser { UserName = dto.UserName, Email = dto.Email, SecurityStamp = Guid.NewGuid().ToString() };
-            var createResult =await _userManager.CreateAsync(user,dto.Password);
+            var createResult = await _userManager.CreateAsync(user, dto.Password);
 
             if (!createResult.Succeeded)
             {
@@ -60,7 +60,7 @@ namespace JwtAuthentication_ASP.net8.Controllers
                 return StatusCode(statusCode: StatusCodes.Status500InternalServerError, errors);
             }
 
-            var addToRoleResult = await _userManager.AddToRoleAsync(user,StaticUserRoles.USER);
+            var addToRoleResult = await _userManager.AddToRoleAsync(user, StaticUserRoles.USER);
 
             if (!addToRoleResult.Succeeded)
             {
@@ -87,7 +87,7 @@ namespace JwtAuthentication_ASP.net8.Controllers
 
             var isPasswordCorrect = await _userManager.CheckPasswordAsync(user, loginDto.Password);
 
-            if(!isPasswordCorrect)
+            if (!isPasswordCorrect)
                 return Unauthorized("Invalid Credentials, Username or Password is incorrect");
 
             var userRoles = await _userManager.GetRolesAsync(user);
@@ -101,10 +101,10 @@ namespace JwtAuthentication_ASP.net8.Controllers
 
             foreach (var role in userRoles)
             {
-                authClaims.Add(new Claim(ClaimTypes.Role,role));
+                authClaims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var token =  GenerateNewJsonWebToken(authClaims);
+            var token = GenerateNewJsonWebToken(authClaims);
 
             return Ok(token);
 
@@ -127,6 +127,70 @@ namespace JwtAuthentication_ASP.net8.Controllers
             return token;
         }
 
+        [HttpPost]
+        [Route("add-role")]
+        public async Task<IActionResult> AddRole([FromBody] UpdatePermissionDto permission)
+        {
+            var user = await _userManager.FindByNameAsync(permission.UserName);
+            if (user == null)
+            {
+                return BadRequest("User not Found");
+            }
 
+            //check role is existed in the Roles Store
+            var roleExists = await _roleManager.RoleExistsAsync(permission.Role);
+            if (!roleExists)
+                return BadRequest("This Role is not Existed");
+
+            //check if role is already assigned to user
+            var rolesAssigned = await _userManager.GetRolesAsync(user);
+            var IsRoleAssigned = rolesAssigned.Any(r => r.Equals(permission.Role));
+            if (IsRoleAssigned)
+                return BadRequest("This Role is already assigned to this User");
+
+
+            var result = await _userManager.AddToRoleAsync(user, permission.Role);
+
+            if (!result.Succeeded)
+                return StatusCode(statusCode: StatusCodes.Status500InternalServerError);
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            return Ok(new { message = "User added to the Role", CurrentRoles = userRoles });
+
+
+        }
+
+        [HttpPost]
+        [Route("remove-role")]
+        public async Task<IActionResult> RemoveRole([FromBody] UpdatePermissionDto permission)
+        {
+            var user = await _userManager.FindByNameAsync(permission.UserName);
+            if (user == null)
+            {
+                return BadRequest("User not Found");
+            }
+
+            //check role is existed in the Roles Store
+            var roleExists = await _roleManager.RoleExistsAsync(permission.Role);
+            if (!roleExists)
+                return BadRequest("This Role is not Existed");
+
+            //check if role is already assigned to user
+            var rolesAssigned = await _userManager.GetRolesAsync(user);
+            var IsRoleAssigned = rolesAssigned.Any(r => r.Equals(permission.Role));
+            if (!IsRoleAssigned)
+                return BadRequest("This Role is not assigned to this User");
+
+
+            var result = await _userManager.RemoveFromRoleAsync(user, permission.Role);
+
+            if (!result.Succeeded)
+                return StatusCode(statusCode: StatusCodes.Status500InternalServerError);
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            return Ok(new { message = "User Removed from the Role", CurrentRoles = userRoles });
+
+
+        }
     }
 }
