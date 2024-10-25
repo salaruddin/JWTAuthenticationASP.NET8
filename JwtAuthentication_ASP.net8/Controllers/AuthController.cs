@@ -1,4 +1,5 @@
 ﻿using JwtAuthentication_ASP.net8.Core.Dtos;
+using JwtAuthentication_ASP.net8.Core.Entities;
 using JwtAuthentication_ASP.net8.Core.OtherObjects;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +13,11 @@ namespace JwtAuthentication_ASP.net8.Controllers
 {
     public class AuthController : Controller
     {
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
 
-        public AuthController(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration)
+        public AuthController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -44,19 +45,25 @@ namespace JwtAuthentication_ASP.net8.Controllers
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
             var userExists = await _userManager.FindByNameAsync(dto.UserName);
-            if (userExists is not null)
-                return BadRequest("User is already exists");
+            if (userExists is not null) return BadRequest("User is already exists");
 
-            var user = new IdentityUser { UserName = dto.UserName, Email = dto.Email, SecurityStamp = Guid.NewGuid().ToString() };
+            var user = new ApplicationUser { 
+                FirstName= dto.FirstName,
+                LastName= dto.LastName,
+                Age= dto.Age,
+                UserName = dto.UserName, 
+                Email = dto.Email, 
+                SecurityStamp = Guid.NewGuid().ToString() 
+            };
+
             var createResult = await _userManager.CreateAsync(user, dto.Password);
 
             if (!createResult.Succeeded)
             {
                 string errors = "Can't Create User, because: ";
                 foreach (var item in createResult.Errors)
-                {
                     errors += $"# {item.Description}";
-                }
+
                 return StatusCode(statusCode: StatusCodes.Status500InternalServerError, errors);
             }
 
@@ -66,12 +73,10 @@ namespace JwtAuthentication_ASP.net8.Controllers
             {
                 string errors = "Can't Add User to User Role, because: ";
                 foreach (var item in createResult.Errors)
-                {
                     errors += $"# {item.Description}";
-                }
+
                 return StatusCode(statusCode: StatusCodes.Status500InternalServerError, errors);
             }
-
             return Ok("User Created Successfully");
         }
 
@@ -96,7 +101,10 @@ namespace JwtAuthentication_ASP.net8.Controllers
             {
                 new Claim(ClaimTypes.Name,user.UserName),
                 new Claim(ClaimTypes.NameIdentifier,user.UserName),
-                new Claim("JWTID",Guid.NewGuid().ToString())
+                new Claim("JWTID",Guid.NewGuid().ToString()),
+                new Claim ("FirstName",user.FirstName),
+                new Claim("LastName",user.LastName),
+                new Claim("Age",user.Age.ToString())
             };
 
             foreach (var role in userRoles)
@@ -157,7 +165,6 @@ namespace JwtAuthentication_ASP.net8.Controllers
             var userRoles = await _userManager.GetRolesAsync(user);
             return Ok(new { message = "User added to the Role", CurrentRoles = userRoles });
 
-
         }
 
         [HttpPost]
@@ -189,7 +196,6 @@ namespace JwtAuthentication_ASP.net8.Controllers
 
             var userRoles = await _userManager.GetRolesAsync(user);
             return Ok(new { message = "User Removed from the Role", CurrentRoles = userRoles });
-
 
         }
     }
